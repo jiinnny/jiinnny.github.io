@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>카페24 Talent Map</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; min-height: 100vh; padding: 2rem; color: #1a1a1a; }
+.wrap { max-width: 900px; margin: 0 auto; }
+.top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 8px; }
+.top-bar h1 { font-size: 20px; font-weight: 600; color: #1a1a1a; }
+.top-bar span { font-size: 12px; color: #888; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+.stat { background: #fff; border-radius: 10px; border: 0.5px solid #e0e0dc; padding: 14px 16px; }
+.stat-label { font-size: 11px; color: #999; margin-bottom: 4px; }
+.stat-value { font-size: 24px; font-weight: 600; color: #1a1a1a; }
+.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+.toolbar input { flex: 1; min-width: 180px; font-size: 13px; padding: 8px 12px; border-radius: 8px; border: 0.5px solid #d0d0cc; background: #fff; outline: none; color: #1a1a1a; }
+.toolbar input:focus { border-color: #999; }
+.toolbar button { font-size: 12px; padding: 8px 14px; border-radius: 8px; border: 0.5px solid #d0d0cc; background: #fff; cursor: pointer; color: #444; white-space: nowrap; transition: background 0.15s; }
+.toolbar button:hover { background: #f0f0ee; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (max-width: 600px) { .grid { grid-template-columns: 1fr; } .stats { grid-template-columns: repeat(2,1fr); } }
+.div-card { border: 0.5px solid #e0e0dc; border-radius: 12px; background: #fff; overflow: hidden; }
+.div-header { padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; transition: background 0.12s; }
+.div-header:hover { background: #fafaf8; }
+.div-header-left { display: flex; align-items: center; gap: 8px; }
+.div-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.div-name { font-size: 13px; font-weight: 600; color: #1a1a1a; }
+.div-count { font-size: 11px; color: #aaa; }
+.chevron { font-size: 14px; color: #bbb; transition: transform 0.2s; display: inline-block; }
+.chevron.open { transform: rotate(180deg); }
+.div-body { border-top: 0.5px solid #f0f0ec; }
+.team-row { display: flex; align-items: center; padding: 6px 14px; border-bottom: 0.5px solid #f5f5f3; gap: 6px; }
+.team-row:last-child { border-bottom: none; }
+.team-row.sub { padding-left: 30px; background: #fafaf8; }
+.team-row.sub2 { padding-left: 46px; background: #f7f7f5; }
+.team-name { font-size: 12px; color: #333; flex: 1; line-height: 1.4; }
+.team-name.muted { color: #777; }
+.badge-group { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: #f0f0ee; color: #888; flex-shrink: 0; }
+.tree-symbol { color: #ccc; font-size: 11px; flex-shrink: 0; }
+mark { background: #fff3cd; border-radius: 2px; padding: 0 1px; color: inherit; }
+.no-result { text-align: center; padding: 2rem; font-size: 13px; color: #aaa; }
+.empty-grid { grid-column: 1/-1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <h1>카페24 Talent Map</h1>
+    <span>LinkedIn 공개정보 기반 추정 · 2026.05</span>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-label">총 본부</div><div class="stat-value" id="s-div">14</div></div>
+    <div class="stat"><div class="stat-label">총 팀/그룹</div><div class="stat-value" id="s-team">—</div></div>
+    <div class="stat"><div class="stat-label">검색 결과</div><div class="stat-value" id="s-result">—</div></div>
+    <div class="stat"><div class="stat-label">펼쳐진 본부</div><div class="stat-value" id="s-open">0</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="search" placeholder="팀명 검색..." oninput="doSearch()" />
+    <button onclick="expandAll()">모두 펼치기</button>
+    <button onclick="collapseAll()">모두 접기</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+</div>
+
+<script>
+const ORG = [
+  { name: "경영전략", color: "#888780", teams: [
+    { name: "전략기획팀" },
+    { name: "미래성장전략팀 (FGS팀)" },
+    { name: "변화조정본부" },
+    { name: "사업운영팀" },
+  ]},
+  { name: "마케팅본부", color: "#D85A30", teams: [
+    { name: "마케팅센터", children: [
+      { name: "마케팅센터 디지털마케팅팀" },
+      { name: "디지털마케팅&유튜브 쇼핑 마케팅팀" },
+    ]},
+    { name: "브랜드전략그룹", children: [
+      { name: "마케팅커뮤니케이션팀" },
+    ]},
+    { name: "브랜드 운영 그룹" },
+    { name: "PR그룹", children: [
+      { name: "PR팀" },
+    ]},
+    { name: "컨텐츠크리에이티브팀" },
+    { name: "크리에이티브 영상팀" },
+    { name: "크리에이티브디자인팀" },
+    { name: "마케팅에이전시그룹" },
+    { name: "IMC3그룹", children: [
+      { name: "광고운영3팀" },
+    ]},
+  ]},
+  { name: "플랫폼사업본부", color: "#378ADD", teams: [
+    { name: "커머스플랫폼팀" },
+    { name: "에코플랫폼그룹", children: [
+      { name: "EP기획팀" },
+    ]},
+    { name: "EC솔루션 그룹", children: [
+      { name: "EC팀" },
+    ]},
+    { name: "플랫폼강화팀" },
+    { name: "커머스기획5팀" },
+  ]},
+  { name: "기술개발본부", color: "#1D9E75", teams: [
+    { name: "EC개발팀" },
+    { name: "CSD개발팀" },
+    { name: "서비스개발팀" },
+    { name: "UI개발팀" },
+    { name: "플랫폼개발팀" },
+    { name: "개발팀" },
+    { name: "SRE Tech팀" },
+    { name: "QA팀" },
+  ]},
+  { name: "인프라본부", color: "#534AB7", teams: [
+    { name: "시스템인프라팀" },
+    { name: "시스템운영팀" },
+    { name: "시스템팀" },
+    { name: "인프라기획팀" },
+    { name: "호스팅플랫폼" },
+    { name: "AI인프라팀" },
+  ]},
+  { name: "데이터/AI본부", color: "#7F77DD", teams: [
+    { name: "Data Analysis Team" },
+    { name: "데이터플랫폼팀" },
+    { name: "BI연구소" },
+    { name: "4IR" },
+  ]},
+  { name: "물류/풀필먼트본부", color: "#BA7517", teams: [
+    { name: "물류솔루션" },
+    { name: "풀필먼트운영팀" },
+    { name: "SCM팀" },
+    { name: "WMS기획팀" },
+    { name: "재고플러스기획팀" },
+  ]},
+  { name: "비즈니스/영업본부", color: "#639922", teams: [
+    { name: "제휴비즈니스팀" },
+    { name: "비즈니스컨설팅팀" },
+    { name: "기술컨설팅팀" },
+    { name: "글로벌컨설팅팀" },
+    { name: "세일즈성장혁신팀" },
+    { name: "서비스사업팀" },
+    { name: "엔터프라이즈그룹" },
+    { name: "B2B협력그룹", children: [
+      { name: "카페24 엔터프라이즈" },
+    ]},
+  ]},
+  { name: "고객/파트너본부", color: "#D4537E", teams: [
+    { name: "고객성장그룹 (PnP)" },
+    { name: "쇼핑몰고객지원" },
+    { name: "매니지드서비스팀" },
+    { name: "관계혁신팀" },
+    { name: "Y쇼핑센터 매치메이킹팀", children: [
+      { name: "Y쇼핑센터 매치메이킹파트" },
+    ]},
+  ]},
+  { name: "MI Division", color: "#993556", teams: [
+    { name: "MI본부 B2B협력팀" },
+    { name: "프론트빌더그룹", children: [
+      { name: "MIS팀" },
+    ]},
+    { name: "MIP팀" },
+  ]},
+  { name: "TechFin본부", color: "#854F0B", teams: [
+    { name: "TechFin RM팀" },
+    { name: "테크핀전략팀" },
+  ]},
+  { name: "글로벌사업본부", color: "#0F6E56", teams: [
+    { name: "글로벌사업팀" },
+    { name: "해외몰전략팀" },
+    { name: "G2G사업전략팀" },
+    { name: "글로벌 운영그룹", children: [
+      { name: "일어권팀" },
+    ]},
+    { name: "유럽 법인" },
+  ]},
+  { name: "솔루션/파트너", color: "#5F5E5A", teams: [
+    { name: "솔루션팀" },
+    { name: "글로벌비즈니스 사이트전략팀" },
+    { name: "마켓플러스활성화팀" },
+  ]},
+  { name: "경영지원", color: "#444441", teams: [
+    { name: "법무팀" },
+    { name: "디지털워크팀" },
+    { name: "디자인팀" },
+    { name: "LE팀" },
+    { name: "창업센터" },
+    { name: "가치성장그룹", children: [
+      { name: "오쇼완운영TF팀" },
+    ]},
+  ]},
+];
+
+let openState = {};
+let searchQ = "";
+
+function countTeams(div) {
+  let n = 0;
+  div.teams.forEach(t => { n++; if (t.children) n += t.children.length; });
+  return n;
+}
+
+function totalTeams() {
+  let n = 0;
+  ORG.forEach(d => n += countTeams(d));
+  return n;
+}
+
+function hl(text, q) {
+  if (!q) return text;
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0) return text;
+  return text.slice(0,i) + '<mark>' + text.slice(i, i+q.length) + '</mark>' + text.slice(i+q.length);
+}
+
+function teamMatches(team, q) {
+  if (!q) return true;
+  if (team.name.toLowerCase().includes(q.toLowerCase())) return true;
+  if (team.children) return team.children.some(c => c.name.toLowerCase().includes(q.toLowerCase()));
+  return false;
+}
+
+function divMatches(div, q) {
+  if (!q) return true;
+  if (div.name.toLowerCase().includes(q.toLowerCase())) return true;
+  return div.teams.some(t => teamMatches(t, q));
+}
+
+function render() {
+  const grid = document.getElementById('grid');
+  const q = searchQ.trim();
+  let matchedTeams = 0;
+  let openCount = 0;
+  let html = '';
+
+  ORG.forEach((div, di) => {
+    if (!divMatches(div, q)) return;
+    const isOpen = openState[di] === true || (q && divMatches(div, q));
+    if (openState[di] === false) { }
+    const finalOpen = openState[di] === true || (q && openState[di] !== false);
+    if (finalOpen) openCount++;
+
+    let bodyHtml = '';
+    div.teams.forEach(team => {
+      if (q && !teamMatches(team, q)) return;
+      matchedTeams++;
+      const hasKids = team.children && team.children.length > 0;
+      bodyHtml += `<div class="team-row">
+        <span class="team-name">${hl(team.name, q)}</span>
+        ${hasKids ? '<span class="badge-group">그룹</span>' : ''}
+      </div>`;
+      if (hasKids) {
+        team.children.forEach(child => {
+          if (q && !child.name.toLowerCase().includes(q.toLowerCase())) return;
+          bodyHtml += `<div class="team-row sub">
+            <span class="tree-symbol">└</span>
+            <span class="team-name muted">${hl(child.name, q)}</span>
+          </div>`;
+        });
+      }
+    });
+
+    html += `<div class="div-card">
+      <div class="div-header" onclick="toggle(${di})">
+        <div class="div-header-left">
+          <div class="div-dot" style="background:${div.color}"></div>
+          <span class="div-name">${hl(div.name, q)}</span>
+          <span class="div-count">${countTeams(div)}개 팀</span>
+        </div>
+        <span class="chevron ${finalOpen ? 'open' : ''}">▾</span>
+      </div>
+      ${finalOpen ? `<div class="div-body">${bodyHtml || '<div class="no-result">검색 결과 없음</div>'}</div>` : ''}
+    </div>`;
+  });
+
+  if (!html) html = '<div class="no-result empty-grid">검색 결과가 없습니다</div>';
+  grid.innerHTML = html;
+
+  document.getElementById('s-result').textContent = q ? matchedTeams : '—';
+  document.getElementById('s-open').textContent = openCount;
+  document.getElementById('s-team').textContent = totalTeams();
+}
+
+function toggle(di) {
+  openState[di] = openState[di] !== true;
+  render();
+}
+
+function expandAll() {
+  ORG.forEach((_, i) => openState[i] = true);
+  render();
+}
+
+function collapseAll() {
+  ORG.forEach((_, i) => openState[i] = false);
+  render();
+}
+
+function doSearch() {
+  searchQ = document.getElementById('search').value;
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
